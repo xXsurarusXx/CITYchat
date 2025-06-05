@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  # Llama.cpp API server (GPU-enabled)
+  llama_server:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama_cpp
+    environment:
+      - GGML_CUDA_ENABLE_UNIFIED_MEMORY=1
+    command: ["-m", "/models/DeepSeek-R1-Distill-Qwen-1.5B-Q8_0.gguf", "--port", "5000"]
+    volumes:
+      - ./models:/models
+    expose:
+      - "5000"
+    networks:
+      - llama-net
+    # Request access to all GPUs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # OpenWebUI frontend (GPU-enabled), pointing to llama_server:5000/v1
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:cuda
+    container_name: openwebui
+    environment:
+      - ENABLE_OPENAI_API=True
+      - OPENAI_API_BASE_URL=http://llama_server:5000/v1
+      - OPENAI_API_KEY=none
+    ports:
+      - "8080:8080"
+    depends_on:
+      - llama_server
+    networks:
+      - llama-net
+    # Request access to all GPUs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+networks:
+  llama-net:
+    driver: bridge
