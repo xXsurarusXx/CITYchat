@@ -3,10 +3,10 @@ version: "3.8"
 services:
   # Llama.cpp API server (GPU-enabled)
   llama_server:
-    image: ghcr.io/ggml-org/llama.cpp:server
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
     container_name: llama_cpp
-    # environment:
-    #   - GGML_CUDA_ENABLE_UNIFIED_MEMORY=1
+    environment:
+      - GGML_CUDA_ENABLE_UNIFIED_MEMORY=1
     command: ["-m", "/models/Qwen3-0.6B-UD-Q4_K_XL.gguf", "--port", "5000"]
     volumes:
       - ./models:/models
@@ -15,22 +15,24 @@ services:
     networks:
       - llama-net
     # Request access to all GPUs
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   # OpenWebUI frontend (GPU-enabled), pointing to llama_server:5000/v1
   openwebui:
-    image: ghcr.io/open-webui/open-webui:latest
+    image: ghcr.io/open-webui/open-webui:cuda
     container_name: openwebui
     environment:
       - ENABLE_OPENAI_API=True
       - OPENAI_API_BASE_URL=http://llama_server:5000/v1
       - OPENAI_API_KEY=none
+    volumes:
+      - open-webui:/app/backend/data
     ports:
       - "8080:8080"
     depends_on:
@@ -38,13 +40,16 @@ services:
     networks:
       - llama-net
     # Request access to all GPUs
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  open-webui:
 
 networks:
   llama-net:
